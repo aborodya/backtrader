@@ -22,6 +22,7 @@ from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
 import collections
+import copy
 import datetime
 import inspect
 import itertools
@@ -420,7 +421,7 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
             if lio:
                 values.extend(map(lambda l: l[0], iocsv.lines.itersize()))
             else:
-                values.extend([''] * iocsv.lines.isize())
+                values.extend([''] * iocsv.lines.size())
 
         return values
 
@@ -514,9 +515,9 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
                              comminfo=order.comminfo)
 
                 if trade.isclosed:
-                    self._tradespending.append(trade)
+                    self._tradespending.append(copy.copy(trade))
                     if quicknotify:
-                        qtrades.append(trade)
+                        qtrades.append(copy.copy(trade))
 
             # Update it if needed
             if exbit.opened:
@@ -537,14 +538,14 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
                 # orders have put the position down to 0 and the next order
                 # "opens" a position but "closes" the trade
                 if trade.isclosed:
-                    self._tradespending.append(trade)
+                    self._tradespending.append(copy.copy(trade))
                     if quicknotify:
-                        qtrades.append(trade)
+                        qtrades.append(copy.copy(trade))
 
             if trade.justopened:
-                self._tradespending.append(trade)
+                self._tradespending.append(copy.copy(trade))
                 if quicknotify:
-                    qtrades.append(trade)
+                    qtrades.append(copy.copy(trade))
 
         if quicknotify:
             self._notify(qorders=qorders, qtrades=qtrades)
@@ -561,7 +562,8 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
             proctrades = self._tradespending
 
         for order in procorders:
-            self.notify_order(order)
+            if order.exectype != order.Historical or order.histnotify:
+                self.notify_order(order)
             for analyzer in itertools.chain(self.analyzers,
                                             self._slave_analyzers):
                 analyzer._notify_order(order)
@@ -1094,10 +1096,19 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
             order. Arguments from the default ``**kwargs`` will be applied on
             top of this.
 
+        High/Low Side orders can be suppressed by using:
+
+          - ``limitexec=None`` to suppress the *high side*
+
+          - ``stopexec=None`` to suppress the *low side*
+
         Returns:
 
           - A list containing the 3 orders [order, stop side, limit side]
 
+          - If high/low orders have been suppressed the return value will still
+            contain 3 orders, but those suppressed will have a value of
+            ``None``
         '''
 
         kargs = dict(size=size,
@@ -1106,28 +1117,34 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
                      trailamount=trailamount, trailpercent=trailpercent)
         kargs.update(oargs)
         kargs.update(kwargs)
-        kargs['transmit'] = False
+        kargs['transmit'] = limitexec is None and stopexec is None
         o = self.buy(**kargs)
 
-        # low side / stop
-        kargs = dict(data=data, price=stopprice, exectype=stopexec,
-                     valid=valid, tradeid=tradeid)
-        kargs.update(stopargs)
-        kargs.update(kwargs)
-        kargs['parent'] = o
-        kargs['transmit'] = False
-        kargs['size'] = o.size
-        ostop = self.sell(**kargs)
+        if stopexec is not None:
+            # low side / stop
+            kargs = dict(data=data, price=stopprice, exectype=stopexec,
+                         valid=valid, tradeid=tradeid)
+            kargs.update(stopargs)
+            kargs.update(kwargs)
+            kargs['parent'] = o
+            kargs['transmit'] = limitexec is None
+            kargs['size'] = o.size
+            ostop = self.sell(**kargs)
+        else:
+            ostop = None
 
-        # high side / limit
-        kargs = dict(data=data, price=limitprice, exectype=limitexec,
-                     valid=valid, tradeid=tradeid)
-        kargs.update(limitargs)
-        kargs.update(kwargs)
-        kargs['parent'] = o
-        kargs['transmit'] = True
-        kargs['size'] = o.size
-        olimit = self.sell(**kargs)
+        if limitexec is not None:
+            # high side / limit
+            kargs = dict(data=data, price=limitprice, exectype=limitexec,
+                         valid=valid, tradeid=tradeid)
+            kargs.update(limitargs)
+            kargs.update(kwargs)
+            kargs['parent'] = o
+            kargs['transmit'] = True
+            kargs['size'] = o.size
+            olimit = self.sell(**kargs)
+        else:
+            olimit = None
 
         return [o, ostop, olimit]
 
@@ -1151,10 +1168,19 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
 
         See ``bracket_buy`` for the meaning of the parameters
 
+        High/Low Side orders can be suppressed by using:
+
+          - ``stopexec=None`` to suppress the *high side*
+
+          - ``limitexec=None`` to suppress the *low side*
+
         Returns:
 
           - A list containing the 3 orders [order, stop side, limit side]
 
+          - If high/low orders have been suppressed the return value will still
+            contain 3 orders, but those suppressed will have a value of
+            ``None``
         '''
 
         kargs = dict(size=size,
@@ -1163,28 +1189,34 @@ class Strategy(with_metaclass(MetaStrategy, StrategyBase)):
                      trailamount=trailamount, trailpercent=trailpercent)
         kargs.update(oargs)
         kargs.update(kwargs)
-        kargs['transmit'] = False
+        kargs['transmit'] = limitexec is None and stopexec is None
         o = self.sell(**kargs)
 
-        # high side / limit
-        kargs = dict(data=data, price=stopprice, exectype=stopexec,
-                     valid=valid, tradeid=tradeid)
-        kargs.update(stopargs)
-        kargs.update(kwargs)
-        kargs['parent'] = o
-        kargs['transmit'] = False
-        kargs['size'] = o.size
-        ostop = self.buy(**kargs)
+        if stopexec is not None:
+            # high side / stop
+            kargs = dict(data=data, price=stopprice, exectype=stopexec,
+                         valid=valid, tradeid=tradeid)
+            kargs.update(stopargs)
+            kargs.update(kwargs)
+            kargs['parent'] = o
+            kargs['transmit'] = limitexec is None  # transmit if last
+            kargs['size'] = o.size
+            ostop = self.buy(**kargs)
+        else:
+            ostop = None
 
-        # low side / stop
-        kargs = dict(data=data, price=limitprice, exectype=limitexec,
-                     valid=valid, tradeid=tradeid)
-        kargs.update(limitargs)
-        kargs.update(kwargs)
-        kargs['parent'] = o
-        kargs['transmit'] = True
-        kargs['size'] = o.size
-        olimit = self.buy(**kargs)
+        if limitexec is not None:
+            # low side / limit
+            kargs = dict(data=data, price=limitprice, exectype=limitexec,
+                         valid=valid, tradeid=tradeid)
+            kargs.update(limitargs)
+            kargs.update(kwargs)
+            kargs['parent'] = o
+            kargs['transmit'] = True
+            kargs['size'] = o.size
+            olimit = self.buy(**kargs)
+        else:
+            olimit = None
 
         return [o, ostop, olimit]
 

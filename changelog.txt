@@ -1,3 +1,49 @@
+1.9.63.122
+  - Add optimization callbacks when running with 1 Core
+  - Correct sell_bracket by removing old append code
+  - Correct typo in store.py
+  - Pass period from RateOfChange100 to underlying ROC
+
+1.9.62.122
+  - Correct PSAR acceleration capping
+  - Enable PandasData line extension without the need to extend datafields
+
+1.9.61.122
+  - Add `_skipnan` to plotlines to allow joining two points with a line
+  - buy_bracket/sell_bracket allow suppressing stop/limit orders
+  - Add stop-loss approaches sample
+  - Correct codes for minutes compression
+
+1.9.60.122
+  - Remove unused files
+  - README update, Docstring corrections, documentation corrections
+  - Update travis settings
+
+1.9.58.122
+  - Provide default fundmode methods for all brokers
+  - Correct order notification if positions exist when starting the broker
+    and will be simulated
+  - Correct csv values output if object has no length
+
+1.9.57.122
+  - PR #326 Fix set_fundmode in bbroker
+  - Synchronize fund history mode with master clock
+  - Allow relocation of legend in plotting charts
+  - Adapt broker observer to fund mode
+
+1.9.56.122
+  - Handle volume as string null in YahooFinanceData
+  - Corrections/Improvements to order history support
+  - Add fund history support
+  - Increase plotting margin of trade observers
+
+1.9.55.122
+  - Add addorder_history support to replay history of orders
+  - Add swapcloses to YahooFinanceXXX family to allow end users to control what
+    the adjusted price actually is
+  - Some docs and samples updates
+  - Change default for _nextforce to False as it should be for most indicators
+
 1.9.54.122
   - Add haDelta indicator
   - Allow indicators to disable runonce

@@ -114,7 +114,7 @@ class Plot_OldSync(with_metaclass(MetaParams, object)):
                       **kwargs)
 
     def plot(self, strategy, figid=0, numfigs=1, iplot=True,
-             start=None, end=None, use=None, **kwargs):
+             start=None, end=None, **kwargs):
         # pfillers={}):
         if not strategy.datas:
             return
@@ -122,9 +122,7 @@ class Plot_OldSync(with_metaclass(MetaParams, object)):
         if not len(strategy):
             return
 
-        if use is not None:
-            matplotlib.use(use)
-        elif iplot:
+        if iplot:
             if 'ipykernel' in sys.modules:
                 matplotlib.use('nbagg')
 
@@ -440,7 +438,18 @@ class Plot_OldSync(with_metaclass(MetaParams, object)):
                 plotkwargs['zorder'] = self.pinf.zordernext(ax)
 
             pltmethod = getattr(ax, lineplotinfo._get('_method', 'plot'))
-            plottedline = pltmethod(self.pinf.xdata, lplot, **plotkwargs)
+
+            xdata, lplotarray = self.pinf.xdata, lplot
+            if lineplotinfo._get('_skipnan', False):
+                # Get the full array and a mask to skipnan
+                lplotarray = np.array(lplot)
+                lplotmask = np.isfinite(lplotarray)
+
+                # Get both the axis and the data masked
+                lplotarray = lplotarray[lplotmask]
+                xdata = np.array(xdata)[lplotmask]
+
+            plottedline = pltmethod(xdata, lplotarray, **plotkwargs)
             try:
                 plottedline = plottedline[0]
             except:
@@ -522,8 +531,11 @@ class Plot_OldSync(with_metaclass(MetaParams, object)):
                 handles, labels = ax.get_legend_handles_labels()
                 # Ensure that we have something to show
                 if labels:
+                    # location can come from the user
+                    loc = ind.plotinfo.legendloc or self.pinf.sch.legendindloc
+
                     # Legend done here to ensure it includes all plots
-                    legend = ax.legend(loc=self.pinf.sch.legendindloc,
+                    legend = ax.legend(loc=loc,
                                        numpoints=1, frameon=False,
                                        shadow=False, fancybox=False,
                                        prop=self.pinf.prop)
@@ -581,8 +593,12 @@ class Plot_OldSync(with_metaclass(MetaParams, object)):
                 # plot a legend
                 handles, labels = ax.get_legend_handles_labels()
                 if handles:
+
+                    # location can come from the user
+                    loc = data.plotinfo.legendloc or self.pinf.sch.legendindloc
+
                     # Legend done here to ensure it includes all plots
-                    legend = ax.legend(loc=self.pinf.sch.legendindloc,
+                    legend = ax.legend(loc=loc,
                                        numpoints=1, frameon=False,
                                        shadow=False, fancybox=False,
                                        prop=self.pinf.prop)
@@ -749,8 +765,9 @@ class Plot_OldSync(with_metaclass(MetaParams, object)):
             l = self.pinf.labels[a]
 
             axlegend = a
+            loc = data.plotinfo.legendloc or self.pinf.sch.legenddataloc
             legend = axlegend.legend(h, l,
-                                     loc='upper left',
+                                     loc=loc,
                                      frameon=False, shadow=False,
                                      fancybox=False, prop=self.pinf.prop,
                                      numpoints=1, ncol=1)
